@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: watermark-remover
+    env: python
+    plan: free
+    buildCommand: |
+      apt-get update && apt-get install -y ffmpeg
+      pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 600 --workers 2
+    envVars: []
