@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RELENTLECE — Watermark Remover</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --border: #222;
+    --accent: #e8ff00;
+    --accent2: #ff3c3c;
+    --text: #f0f0f0;
+    --muted: #555;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 36px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 4px;
+    color: var(--accent);
+  }
+  .logo span { color: #fff; }
+  .badge {
+    background: var(--accent);
+    color: #000;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    padding: 4px 10px;
+    border-radius: 2px;
+  }
+
+  /* ── Layout ── */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 0;
+    height: calc(100vh - 65px);
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    overflow-y: auto;
+  }
+
+  .section-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 13px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 1.5px dashed #333;
+    border-radius: 8px;
+    padding: 32px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+    background: #0d0d0d;
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: #111a00; }
+  .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-icon { font-size: 32px; margin-bottom: 10px; }
+  .upload-zone p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .upload-zone strong { color: var(--text); font-weight: 500; }
+
+  /* Progress */
+  .progress-bar {
+    height: 3px;
+    background: #1a1a1a;
+    border-radius: 2px;
+    overflow: hidden;
+    display: none;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width .4s ease;
+    animation: pulse 1.5s ease infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+  /* File info */
+  .file-info {
+    display: none;
+    background: #0f0f0f;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    font-size: 12px;
+  }
+  .file-info .name { font-weight: 500; color: var(--text); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-info .meta { color: var(--muted); }
+
+  /* Regions list */
+  .regions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .region-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #0f0f0f;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+  .region-item .coords { color: var(--muted); font-family: monospace; font-size: 11px; }
+  .region-item button {
+    background: none;
+    border: none;
+    color: var(--accent2);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 4px;
+  }
+  .no-regions { color: var(--muted); font-size: 12px; text-align: center; padding: 16px; }
+
+  .hint {
+    background: #111a00;
+    border: 1px solid #2a3a00;
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-size: 12px;
+    color: #9ab800;
+    line-height: 1.6;
+  }
+  .hint strong { color: var(--accent); }
+
+  /* Buttons */
+  .btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 3px;
+    transition: all .15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+  .btn-primary:hover { background: #d4eb00; transform: translateY(-1px); }
+  .btn-primary:disabled { background: #333; color: var(--muted); cursor: not-allowed; transform: none; }
+  .btn-outline {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    letter-spacing: 1px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+  }
+  .btn-outline:hover { border-color: var(--text); }
+
+  .btn-clear {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid #1a1a1a;
+    font-size: 12px;
+    letter-spacing: 1px;
+    font-family: 'DM Sans', sans-serif;
+    padding: 10px;
+  }
+  .btn-clear:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  /* ── Canvas area ── */
+  .canvas-area {
+    background: #080808;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .empty-state {
+    text-align: center;
+    color: var(--muted);
+  }
+  .empty-state .big-icon { font-size: 64px; margin-bottom: 16px; opacity: .4; }
+  .empty-state h2 { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 3px; color: #333; margin-bottom: 8px; }
+  .empty-state p { font-size: 13px; }
+
+  .canvas-wrapper {
+    position: relative;
+    display: none;
+    cursor: crosshair;
+    box-shadow: 0 0 60px rgba(0,0,0,.8);
+  }
+  .canvas-wrapper img {
+    display: block;
+    max-width: 100%;
+    max-height: calc(100vh - 130px);
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+  }
+  canvas#overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Result banner */
+  .result-banner {
+    display: none;
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    background: #111;
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 20px 24px;
+    min-width: 280px;
+    animation: slideUp .3s ease;
+    z-index: 100;
+  }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .result-banner h3 { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 2px; color: var(--accent); margin-bottom: 6px; }
+  .result-banner p { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+
+  /* Processing overlay */
+  .processing-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.85);
+    z-index: 200;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+  .spinner {
+    width: 48px;
+    height: 48px;
+    border: 3px solid #222;
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .processing-overlay h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 4px;
+    color: var(--accent);
+  }
+  .processing-overlay p { font-size: 13px; color: var(--muted); }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">RELENTLECE <span>// Watermark Remover</span></div>
+  <div class="badge">WEB TOOL</div>
+</header>
+
+<main>
+  <!-- Sidebar -->
+  <div class="sidebar">
+
+    <div>
+      <div class="section-label">01 — Upload Clip</div>
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" id="fileInput" accept="video/*" />
+        <div class="upload-icon">🎬</div>
+        <p><strong>Drop your clip here</strong><br/>or click to browse<br/><br/>MP4, MOV, AVI supported<br/>Max 200 MB</p>
+      </div>
+      <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="file-info" id="fileInfo">
+        <div class="name" id="fileName"></div>
+        <div class="meta" id="fileMeta"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">02 — Select Watermark</div>
+      <div class="hint">
+        <strong>Draw a box</strong> over the watermark on the preview. You can add multiple regions if needed.
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">03 — Regions <span id="regionCount" style="color:var(--accent)">(0)</span></div>
+      <div class="regions-list" id="regionsList">
+        <div class="no-regions">No regions selected yet</div>
+      </div>
+      <button class="btn btn-clear" id="clearBtn" style="margin-top:10px; width:100%">✕ Clear All Regions</button>
+    </div>
+
+    <div style="margin-top:auto; display:flex; flex-direction:column; gap:10px;">
+      <button class="btn btn-primary" id="processBtn" disabled>
+        ⚡ REMOVE WATERMARK
+      </button>
+      <button class="btn btn-outline" id="resetBtn">↺ Start Over</button>
+    </div>
+
+  </div>
+
+  <!-- Canvas -->
+  <div class="canvas-area" id="canvasArea">
+    <div class="empty-state" id="emptyState">
+      <div class="big-icon">🎥</div>
+      <h2>No Clip Loaded</h2>
+      <p>Upload a video to get started</p>
+    </div>
+    <div class="canvas-wrapper" id="canvasWrapper">
+      <img id="preview" src="" alt="Preview" />
+      <canvas id="overlay"></canvas>
+    </div>
+  </div>
+</main>
+
+<!-- Processing overlay -->
+<div class="processing-overlay" id="processingOverlay">
+  <div class="spinner"></div>
+  <h2>Removing Watermark...</h2>
+  <p>This may take a moment depending on clip length</p>
+</div>
+
+<!-- Result banner -->
+<div class="result-banner" id="resultBanner">
+  <h3>✅ Done! Clean Video Ready</h3>
+  <p>Your watermark has been removed successfully.</p>
+  <button class="btn btn-primary" id="downloadBtn" style="font-size:14px; letter-spacing:2px; padding:12px">
+    ⬇ DOWNLOAD CLEAN VIDEO
+  </button>
+</div>
+
+<script>
+let videoId = null, videoExt = null;
+let origW = 1, origH = 1, dispW = 1, dispH = 1;
+let regions = [];
+let drawing = false, startX = 0, startY = 0, currentRect = null;
+
+const fileInput = document.getElementById("fileInput");
+const uploadZone = document.getElementById("uploadZone");
+const progressBar = document.getElementById("progressBar");
+const progressFill = document.getElementById("progressFill");
+const fileInfo = document.getElementById("fileInfo");
+const fileName = document.getElementById("fileName");
+const fileMeta = document.getElementById("fileMeta");
+const preview = document.getElementById("preview");
+const canvasWrapper = document.getElementById("canvasWrapper");
+const overlay = document.getElementById("overlay");
+const ctx = overlay.getContext("2d");
+const emptyState = document.getElementById("emptyState");
+const processBtn = document.getElementById("processBtn");
+const regionsList = document.getElementById("regionsList");
+const regionCount = document.getElementById("regionCount");
+const resultBanner = document.getElementById("resultBanner");
+const downloadBtn = document.getElementById("downloadBtn");
+const processingOverlay = document.getElementById("processingOverlay");
+
+// Drag & Drop
+uploadZone.addEventListener("dragover", e => { e.preventDefault(); uploadZone.classList.add("drag"); });
+uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("drag"));
+uploadZone.addEventListener("drop", e => {
+  e.preventDefault(); uploadZone.classList.remove("drag");
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener("change", () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+function handleFile(file) {
+  fileName.textContent = file.name;
+  fileMeta.textContent = `${(file.size / 1024 / 1024).toFixed(1)} MB`;
+  fileInfo.style.display = "block";
+  progressBar.style.display = "block";
+  progressFill.style.width = "0%";
+
+  // Animate progress
+  let p = 0;
+  const iv = setInterval(() => {
+    p = Math.min(p + Math.random() * 12, 85);
+    progressFill.style.width = p + "%";
+  }, 150);
+
+  const formData = new FormData();
+  formData.append("video", file);
+
+  fetch("/upload", { method: "POST", body: formData })
+    .then(r => r.json())
+    .then(data => {
+      clearInterval(iv);
+      progressFill.style.width = "100%";
+      setTimeout(() => progressBar.style.display = "none", 500);
+
+      videoId = data.id;
+      videoExt = data.ext;
+      origW = data.width;
+      origH = data.height;
+
+      preview.src = "data:image/jpeg;base64," + data.thumb;
+      preview.onload = () => {
+        dispW = preview.naturalWidth;
+        dispH = preview.naturalHeight;
+        overlay.width = dispW;
+        overlay.height = dispH;
+        emptyState.style.display = "none";
+        canvasWrapper.style.display = "inline-block";
+        regions = [];
+        renderRegions();
+      };
+    })
+    .catch(() => { clearInterval(iv); alert("Upload failed. Make sure app.py is running."); });
+}
+
+// Drawing on canvas
+overlay.addEventListener("mousedown", e => {
+  const r = overlay.getBoundingClientRect();
+  const scaleX = overlay.width / r.width;
+  const scaleY = overlay.height / r.height;
+  startX = (e.clientX - r.left) * scaleX;
+  startY = (e.clientY - r.top) * scaleY;
+  drawing = true;
+  currentRect = null;
+});
+
+overlay.addEventListener("mousemove", e => {
+  if (!drawing) return;
+  const r = overlay.getBoundingClientRect();
+  const scaleX = overlay.width / r.width;
+  const scaleY = overlay.height / r.height;
+  const mx = (e.clientX - r.left) * scaleX;
+  const my = (e.clientY - r.top) * scaleY;
+  currentRect = { x: startX, y: startY, w: mx - startX, h: my - startY };
+  redraw();
+});
+
+overlay.addEventListener("mouseup", e => {
+  if (!drawing) return;
+  drawing = false;
+  if (currentRect && Math.abs(currentRect.w) > 10 && Math.abs(currentRect.h) > 10) {
+    // Convert to video coords
+    const scaleX = origW / dispW;
+    const scaleY = origH / dispH;
+    const norm = normalizeRect(currentRect);
+    regions.push({
+      x: Math.round(norm.x * scaleX),
+      y: Math.round(norm.y * scaleY),
+      w: Math.round(norm.w * scaleX),
+      h: Math.round(norm.h * scaleY),
+      dispX: norm.x, dispY: norm.y, dispW: norm.w, dispH: norm.h
+    });
+    currentRect = null;
+    renderRegions();
+    redraw();
+  }
+});
+
+function normalizeRect(r) {
+  return {
+    x: r.w < 0 ? r.x + r.w : r.x,
+    y: r.h < 0 ? r.y + r.h : r.y,
+    w: Math.abs(r.w),
+    h: Math.abs(r.h)
+  };
+}
+
+function redraw() {
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+  regions.forEach((r, i) => {
+    ctx.fillStyle = "rgba(232,255,0,0.2)";
+    ctx.fillRect(r.dispX, r.dispY, r.dispW, r.dispH);
+    ctx.strokeStyle = "#e8ff00";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(r.dispX, r.dispY, r.dispW, r.dispH);
+    ctx.fillStyle = "#e8ff00";
+    ctx.fillRect(r.dispX, r.dispY, 20, 20);
+    ctx.fillStyle = "#000";
+    ctx.font = "bold 12px DM Sans";
+    ctx.textAlign = "center";
+    ctx.fillText(i + 1, r.dispX + 10, r.dispY + 14);
+  });
+  if (currentRect) {
+    const n = normalizeRect(currentRect);
+    ctx.fillStyle = "rgba(255,60,60,0.15)";
+    ctx.fillRect(n.x, n.y, n.w, n.h);
+    ctx.strokeStyle = "#ff3c3c";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 3]);
+    ctx.strokeRect(n.x, n.y, n.w, n.h);
+    ctx.setLineDash([]);
+  }
+}
+
+function renderRegions() {
+  regionCount.textContent = `(${regions.length})`;
+  if (regions.length === 0) {
+    regionsList.innerHTML = '<div class="no-regions">No regions selected yet</div>';
+    processBtn.disabled = true;
+    return;
+  }
+  processBtn.disabled = false;
+  regionsList.innerHTML = regions.map((r, i) => `
+    <div class="region-item">
+      <div>
+        <div style="color:#f0f0f0;font-weight:500;margin-bottom:3px">Region ${i + 1}</div>
+        <div class="coords">x:${r.x} y:${r.y} w:${r.w} h:${r.h}</div>
+      </div>
+      <button onclick="removeRegion(${i})">✕</button>
+    </div>
+  `).join("");
+}
+
+window.removeRegion = (i) => {
+  regions.splice(i, 1);
+  renderRegions();
+  redraw();
+};
+
+document.getElementById("clearBtn").addEventListener("click", () => {
+  regions = [];
+  renderRegions();
+  redraw();
+});
+
+// Process
+processBtn.addEventListener("click", () => {
+  if (!videoId || regions.length === 0) return;
+  processingOverlay.style.display = "flex";
+  resultBanner.style.display = "none";
+
+  fetch("/process", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: videoId, ext: videoExt, regions })
+  })
+  .then(r => r.json())
+  .then(data => {
+    processingOverlay.style.display = "none";
+    if (data.error) { alert("Error: " + data.error); return; }
+    resultBanner.style.display = "block";
+    downloadBtn.onclick = () => window.location.href = "/download/" + data.output_id;
+  })
+  .catch(() => {
+    processingOverlay.style.display = "none";
+    alert("Processing failed.");
+  });
+});
+
+// Reset
+document.getElementById("resetBtn").addEventListener("click", () => {
+  videoId = null; videoExt = null;
+  regions = [];
+  emptyState.style.display = "block";
+  canvasWrapper.style.display = "none";
+  fileInfo.style.display = "none";
+  progressBar.style.display = "none";
+  resultBanner.style.display = "none";
+  fileInput.value = "";
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+  renderRegions();
+});
+
+// Touch support for mobile
+overlay.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  const r = overlay.getBoundingClientRect();
+  const scaleX = overlay.width / r.width;
+  const scaleY = overlay.height / r.height;
+  startX = (t.clientX - r.left) * scaleX;
+  startY = (t.clientY - r.top) * scaleY;
+  drawing = true; currentRect = null;
+}, { passive: false });
+
+overlay.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (!drawing) return;
+  const t = e.touches[0];
+  const r = overlay.getBoundingClientRect();
+  const scaleX = overlay.width / r.width;
+  const scaleY = overlay.height / r.height;
+  const mx = (t.clientX - r.left) * scaleX;
+  const my = (t.clientY - r.top) * scaleY;
+  currentRect = { x: startX, y: startY, w: mx - startX, h: my - startY };
+  redraw();
+}, { passive: false });
+
+overlay.addEventListener('touchend', e => {
+  e.preventDefault();
+  if (!drawing) return;
+  drawing = false;
+  if (currentRect && Math.abs(currentRect.w) > 10 && Math.abs(currentRect.h) > 10) {
+    const scaleX = origW / dispW;
+    const scaleY = origH / dispH;
+    const norm = normalizeRect(currentRect);
+    regions.push({
+      x: Math.round(norm.x * scaleX), y: Math.round(norm.y * scaleY),
+      w: Math.round(norm.w * scaleX), h: Math.round(norm.h * scaleY),
+      dispX: norm.x, dispY: norm.y, dispW: norm.w, dispH: norm.h
+    });
+    currentRect = null;
+    renderRegions(); redraw();
+  }
+}, { passive: false });
+</script>
+</body>
+    </html>
+  
